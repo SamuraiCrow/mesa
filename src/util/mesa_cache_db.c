@@ -17,6 +17,9 @@
 #include <string.h>
 #include <sys/file.h>
 #include <unistd.h>
+#ifdef __HAIKU__
+#include <fcntl.h>
+#endif
 
 #include "crc32.h"
 #include "disk_cache.h"

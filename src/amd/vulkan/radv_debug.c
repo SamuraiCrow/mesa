@@ -726,7 +726,7 @@ radv_check_gpu_hangs(struct radv_queue *queue, struct radeon_cmdbuf *cs)
    strftime(buf_time, sizeof(buf_time), "%Y.%m.%d_%H.%M.%S", timep);
 
    snprintf(dump_dir, sizeof(dump_dir), "%s/" RADV_DUMP_DIR "_%d_%s", debug_get_option("HOME", "."),
-            getpid(), buf_time);
+            (int)getpid(), buf_time);
    if (mkdir(dump_dir, 0774) && errno != EEXIST) {
       fprintf(stderr, "radv: can't create directory '%s' (%i).\n", dump_dir, errno);
       abort();
