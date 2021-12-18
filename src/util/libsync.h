@@ -37,6 +37,9 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <time.h>
+#if defined(__HAIKU__)
+#include <sys/ioccom.h>
+#endif
 
 #if defined(__cplusplus)
 extern "C" {

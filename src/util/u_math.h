@@ -50,6 +50,9 @@
 #include "util/detect_cc.h"
 #include "util/detect_arch.h"
 
+#include <sys/param.h>
+#undef ALIGN
+
 #ifdef __cplusplus
 extern "C" {
 #endif

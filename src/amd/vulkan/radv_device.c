@@ -29,7 +29,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__HAIKU__)
 #include <sys/types.h>
 #endif
 #ifdef MAJOR_IN_MKDEV
@@ -2610,7 +2610,7 @@ radv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          props->minAccelerationStructureScratchOffsetAlignment = 128;
          break;
       }
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__HAIKU__)
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT: {
          VkPhysicalDeviceDrmPropertiesEXT *props = (VkPhysicalDeviceDrmPropertiesEXT *)ext;
          if (pdevice->available_nodes & (1 << DRM_NODE_PRIMARY)) {

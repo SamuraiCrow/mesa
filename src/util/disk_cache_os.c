@@ -203,9 +203,13 @@ choose_lru_file_matching(const char *dir_path,
    /* First count the number of files in the directory */
    unsigned total_file_count = 0;
    while ((dir_ent = readdir(dir)) != NULL) {
+#if !defined(__HAIKU__)
       if (dir_ent->d_type == DT_REG) { /* If the entry is a regular file */
+#endif
+#if !defined(__HAIKU__)
          total_file_count++;
       }
+#endif
    }
 
    /* Reset to the start of the directory */

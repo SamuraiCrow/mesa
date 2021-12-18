@@ -43,6 +43,8 @@
 #include "vk_sync.h"
 #include "vk_sync_dummy.h"
 
+int amdgpu_cs_syncobj_accumulate(amdgpu_device_handle dev, uint32_t syncobj1, uint32_t syncobj2, uint64_t point);
+
 #define GFX6_MAX_CS_SIZE 0xffff8 /* in dwords */
 
 enum { VIRTUAL_BUFFER_HASH_TABLE_SIZE = 1024 };
@@ -1263,50 +1265,16 @@ radv_amdgpu_cs_submit_zero(struct radv_amdgpu_ctx *ctx, enum amd_ip_type ip_type
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    if (sem_info->wait.syncobj_count || sem_info->wait.timeline_syncobj_count) {
-      int fd;
-      ret = amdgpu_cs_syncobj_export_sync_file(ctx->ws->dev, queue_syncobj, &fd);
-      if (ret < 0)
-         return VK_ERROR_DEVICE_LOST;
-
       for (unsigned i = 0; i < sem_info->wait.syncobj_count; ++i) {
-         int fd2;
-         ret = amdgpu_cs_syncobj_export_sync_file(ctx->ws->dev, sem_info->wait.syncobj[i], &fd2);
-         if (ret < 0) {
-            close(fd);
+         ret = amdgpu_cs_syncobj_accumulate(ctx->ws->dev, queue_syncobj, sem_info->wait.syncobj[i], 0);
+         if (ret < 0)
             return VK_ERROR_DEVICE_LOST;
-         }
-
-         sync_accumulate("radv", &fd, fd2);
-         close(fd2);
       }
       for (unsigned i = 0; i < sem_info->wait.timeline_syncobj_count; ++i) {
-         int fd2;
-         ret = amdgpu_cs_syncobj_export_sync_file2(
-            ctx->ws->dev, sem_info->wait.syncobj[i + sem_info->wait.syncobj_count],
-            sem_info->wait.points[i], 0, &fd2);
-         if (ret < 0) {
-            /* This works around a kernel bug where the fence isn't copied if it is already
-             * signalled. Since it is already signalled it is totally fine to not wait on it.
-             *
-             * kernel patch: https://patchwork.freedesktop.org/patch/465583/ */
-            uint64_t point;
-            ret = amdgpu_cs_syncobj_query2(
-               ctx->ws->dev, &sem_info->wait.syncobj[i + sem_info->wait.syncobj_count], &point, 1,
-               0);
-            if (!ret && point >= sem_info->wait.points[i])
-               continue;
-
-            close(fd);
+         ret = amdgpu_cs_syncobj_accumulate(ctx->ws->dev, queue_syncobj, sem_info->wait.syncobj[i + sem_info->wait.syncobj_count], sem_info->wait.points[i]);
+         if (ret < 0)
             return VK_ERROR_DEVICE_LOST;
-         }
-
-         sync_accumulate("radv", &fd, fd2);
-         close(fd2);
       }
-      ret = amdgpu_cs_syncobj_import_sync_file(ctx->ws->dev, queue_syncobj, fd);
-      close(fd);
-      if (ret < 0)
-         return VK_ERROR_DEVICE_LOST;
 
       ctx->queue_syncobj_wait[hw_ip][queue_idx] = true;
    }
