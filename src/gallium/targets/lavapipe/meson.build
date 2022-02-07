@@ -20,6 +20,9 @@ if with_platform_windows
   icd_lib_path = join_paths(get_option('prefix'), get_option('bindir'))
   icd_file_name = 'vulkan_lvp.dll'
 endif
+if with_platform_haiku
+  module_dir = './'
+endif
 
 icd_command = [
   prog_python, '@INPUT0@',
