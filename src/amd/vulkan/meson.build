@@ -227,6 +227,9 @@ if with_platform_windows
   icd_lib_path = join_paths(get_option('prefix'), get_option('bindir'))
   icd_file_name = 'vulkan_radeon.dll'
 endif
+if with_platform_haiku
+  icd_lib_path = '.'
+endif
 
 icd_command = [
   prog_python, '@INPUT0@',
