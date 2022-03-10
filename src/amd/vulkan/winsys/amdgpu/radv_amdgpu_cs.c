@@ -24,7 +24,7 @@
 
 #include <amdgpu.h>
 #include <assert.h>
-#include <libsync.h>
+//#include <libsync.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include "drm-uapi/amdgpu_drm.h"

@@ -756,7 +756,7 @@ OSMesaMakeCurrent(OSMesaContext osmesa, void *buffer, GLenum type,
         osmesa->current_buffer->height != height)) {
       osmesa_destroy_buffer(osmesa->current_buffer);
       osmesa->current_buffer = NULL;
-      stapi->make_current(stapi, NULL, NULL, NULL);
+      st_api_make_current(NULL, NULL, NULL);
    }
 
    if (!osmesa->current_buffer) {

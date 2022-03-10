@@ -47,6 +47,8 @@
 #include <unistd.h>
 #endif
 
+#undef HAVE_LIBDRM
+
 uint64_t WSI_DEBUG;
 
 static const struct debug_control debug_control[] = {
