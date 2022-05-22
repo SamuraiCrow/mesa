@@ -87,13 +87,15 @@ hgl_st_framebuffer_flush_front(struct st_context *st,
 static void
 stw_st_fill_private_loader_data(struct hgl_buffer *buffer, struct kopper_loader_info *out)
 {
-   out->headless.sType = VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT;
-   out->headless.pNext = NULL;
-   out->headless.flags = 0;
+   VkHeadlessSurfaceCreateInfoEXT *headless = (VkHeadlessSurfaceCreateInfoEXT*)&out->bos;
+
+   headless->sType = VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT;
+   headless->pNext = NULL;
+   headless->flags = 0;
    out->bitmapHook = buffer->winsysContext;
    out->has_alpha = true;
 }
-#endif 
+#endif
 
 
 static bool
@@ -146,7 +148,7 @@ hgl_st_framebuffer_validate_textures(struct pipe_frontend_drawable *drawable,
 					break;
 				case ST_ATTACHMENT_DEPTH_STENCIL:
 					format = buffer->visual.depth_stencil_format;
-					bind = PIPE_BIND_DEPTH_STENCIL;
+					bind = PIPE_BIND_DISPLAY_TARGET | PIPE_BIND_DEPTH_STENCIL;
 					break;
 				default:
 					format = PIPE_FORMAT_NONE;
@@ -162,7 +164,7 @@ hgl_st_framebuffer_validate_textures(struct pipe_frontend_drawable *drawable,
 				if (i < ST_ATTACHMENT_DEPTH_STENCIL && buffer->screen->resource_create_drawable) {
 					struct kopper_loader_info loader_info;
 					void *data;
-					
+
 					if (bind & PIPE_BIND_DISPLAY_TARGET) {
 						stw_st_fill_private_loader_data(buffer, &loader_info);
 						data = &loader_info;
@@ -174,7 +176,9 @@ hgl_st_framebuffer_validate_textures(struct pipe_frontend_drawable *drawable,
 				} else {
 #endif
 					buffer->textures[i] = buffer->screen->resource_create(buffer->screen, &templat);
+#ifdef GALLIUM_ZINK
 				}
+#endif
 				if (!buffer->textures[i])
 					return FALSE;
 			}

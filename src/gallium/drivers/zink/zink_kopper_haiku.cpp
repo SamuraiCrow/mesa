@@ -25,7 +25,7 @@ public:
 VkResult
 zink_kopper_create_surface_haiku(struct zink_screen *screen, struct kopper_loader_info *info, VkSurfaceKHR *surface)
 {
-	VkResult error = VKSCR(CreateHeadlessSurfaceEXT)(screen->instance, &info->headless, NULL, surface);
+	VkResult error = VKSCR(CreateHeadlessSurfaceEXT)(screen->instance, (VkHeadlessSurfaceCreateInfoEXT*)&info->bos, NULL, surface);
 	if (error != VK_SUCCESS)
 		return error;
 

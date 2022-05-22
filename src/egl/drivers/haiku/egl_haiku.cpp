@@ -49,7 +49,10 @@
 #include "hgl_context.h"
 #include "hgl_sw_winsys.h"
 
+extern "C" {
+#include "gallium/drivers/zink/zink_public.h"
 #include "target-helpers/inline_sw_helper.h"
+}
 
 #define BGL_RGB				0
 #define BGL_INDEX			1
@@ -97,6 +100,7 @@ struct haiku_egl_context {
 struct haiku_egl_surface {
 	_EGLSurface base;
 	struct hgl_buffer *fb;
+	struct pipe_fence_handle *throttle_fence;
 };
 
 
@@ -180,8 +184,11 @@ haiku_create_pbuffer_surface(_EGLDisplay *disp, _EGLConfig *conf, const EGLint *
 static EGLBoolean
 haiku_destroy_surface(_EGLDisplay *disp, _EGLSurface *surf)
 {
+	struct haiku_egl_display *hgl_dpy = haiku_egl_display(disp);
 	if (_eglPutSurface(surf)) {
 		struct haiku_egl_surface *hgl_surf = haiku_egl_surface(surf);
+		struct pipe_screen* screen = hgl_dpy->disp->fscreen->screen;
+		screen->fence_reference(screen, &hgl_surf->throttle_fence, NULL);
 		hgl_destroy_st_framebuffer(hgl_surf->fb);
 		free(surf);
 	}
@@ -277,7 +284,11 @@ haiku_initialize_impl(_EGLDisplay *disp, void *platformDisplay)
 	disp->DriverData = (void *)wgl_dpy;
 
 	struct sw_winsys* winsys = hgl_create_sw_winsys();
+#if 0
 	struct pipe_screen* screen = sw_screen_create(winsys);
+#else
+	struct pipe_screen* screen = zink_create_screen(winsys, NULL);
+#endif
 	wgl_dpy->disp = hgl_create_display(screen);
 
 	disp->ClientAPIs = 0;
@@ -453,22 +464,29 @@ haiku_swap_buffers(_EGLDisplay *disp, _EGLSurface *surf)
 	struct st_context *st = hgl_ctx->ctx->st;
 	struct pipe_screen *screen = hgl_dpy->disp->fscreen->screen;
 
-	struct pipe_fence_handle *fence = NULL;
-	st_context_flush(st, ST_FLUSH_FRONT, &fence, NULL, NULL);
-   if (fence) {
-      screen->fence_finish(screen, NULL, fence, PIPE_TIMEOUT_INFINITE);
-      screen->fence_reference(screen, &fence, NULL);
-   }
-
 	struct hgl_buffer* buffer = hgl_surf->fb;
+	auto &backBuffer = buffer->textures[ST_ATTACHMENT_BACK_LEFT];
+	auto &frontBuffer = buffer->textures[ST_ATTACHMENT_FRONT_LEFT];
+
+	st->pipe->flush_resource(st->pipe, backBuffer);
+
+	_mesa_glthread_finish(st->ctx);
+
+	struct pipe_fence_handle *new_fence = NULL;
+	st_context_flush(st, ST_FLUSH_FRONT, &new_fence, NULL, NULL);
+	if (hgl_surf->throttle_fence) {
+		screen->fence_finish(screen, NULL, hgl_surf->throttle_fence, PIPE_TIMEOUT_INFINITE);
+		screen->fence_reference(screen, &hgl_surf->throttle_fence, NULL);
+	}
+	hgl_surf->throttle_fence = new_fence;
 
 	// flush back buffer and swap buffers if double buffering is used
-	if (buffer->textures[ST_ATTACHMENT_BACK_LEFT] != NULL) {
-		screen->flush_frontbuffer(screen, st->pipe, buffer->textures[ST_ATTACHMENT_BACK_LEFT],
-			0, 0, buffer->winsysContext, NULL);
-		std::swap(buffer->textures[ST_ATTACHMENT_FRONT_LEFT], buffer->textures[ST_ATTACHMENT_BACK_LEFT]);
+	if (backBuffer != NULL) {
+		screen->flush_frontbuffer(screen, st->pipe, backBuffer, 0, 0, buffer->winsysContext, NULL);
+		std::swap(frontBuffer, backBuffer);
 		p_atomic_inc(&buffer->base.stamp);
 	}
+
 	update_size(buffer);
 
 	return EGL_TRUE;
