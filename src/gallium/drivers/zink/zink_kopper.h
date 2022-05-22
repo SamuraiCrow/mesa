@@ -61,7 +61,8 @@ struct kopper_swapchain {
 enum kopper_type {
    KOPPER_X11,
    KOPPER_WAYLAND,
-   KOPPER_WIN32
+   KOPPER_WIN32,
+   KOPPER_HAIKU
 };
 
 struct kopper_displaytarget
@@ -145,6 +146,9 @@ void
 zink_kopper_set_swap_interval(struct pipe_screen *pscreen, struct pipe_resource *pres, int interval);
 int
 zink_kopper_query_buffer_age(struct pipe_context *pctx, struct pipe_resource *pres);
+
+VkResult
+zink_kopper_create_surface_haiku(struct zink_screen *screen, struct kopper_loader_info *info, VkSurfaceKHR *surface);
 
 #ifdef __cplusplus
 }

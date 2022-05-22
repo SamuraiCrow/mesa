@@ -70,9 +70,14 @@ init_dt_type(struct kopper_displaytarget *cdt)
       cdt->type = KOPPER_WIN32;
       break;
 #endif
-   default:
-      unreachable("unsupported!");
-   }
+#ifdef __HAIKU__
+    case VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT:
+       cdt->type = KOPPER_HAIKU;
+       break;
+#endif
+    default:
+       unreachable("unsupported!");
+    }
 }
 
 static VkSurfaceKHR
@@ -105,12 +110,17 @@ kopper_CreateSurface(struct zink_screen *screen, struct kopper_displaytarget *cd
       break;
    }
 #endif
-   default:
-      unreachable("unsupported!");
-   }
-   if (error != VK_SUCCESS) {
-      return VK_NULL_HANDLE;
-   }
+ #ifdef __HAIKU__
+    case VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT:
+       error = zink_kopper_create_surface_haiku(screen, &cdt->info, &surface);
+       break;
+#endif
+    default:
+       unreachable("unsupported!");
+    }
+    if (error != VK_SUCCESS) {
+       return VK_NULL_HANDLE;
+    }
 
    VkBool32 supported;
    error = VKSCR(GetPhysicalDeviceSurfaceSupportKHR)(screen->pdev, screen->gfx_queue, surface, &supported);
@@ -202,6 +212,11 @@ find_dt_entry(struct zink_screen *screen, const struct kopper_displaytarget *cdt
       break;
    }
 #endif
+#ifdef __HAIKU__
+   case KOPPER_HAIKU:
+      he = _mesa_hash_table_search(&screen->dts, cdt->info.bitmapHook);
+      break;
+#endif
    default:
       unreachable("unsupported!");
    }
@@ -270,6 +285,7 @@ kopper_CreateSwapchain(struct zink_screen *screen, struct kopper_displaytarget *
    switch (cdt->type) {
    case KOPPER_X11:
    case KOPPER_WIN32:
+   case KOPPER_HAIKU:
       /* With Xcb, minImageExtent, maxImageExtent, and currentExtent must always equal the window size.
        * ...
        * Due to above restrictions, it is only possible to create a new swapchain on this
@@ -384,6 +400,7 @@ zink_kopper_displaytarget_create(struct zink_screen *screen, unsigned tex_usage,
             break;
          case KOPPER_WAYLAND:
          case KOPPER_WIN32:
+         case KOPPER_HAIKU:
             _mesa_hash_table_init(&screen->dts, screen, _mesa_hash_pointer, _mesa_key_pointer_equal);
             break;
          default:
@@ -456,6 +473,11 @@ zink_kopper_displaytarget_create(struct zink_screen *screen, unsigned tex_usage,
       _mesa_hash_table_insert(&screen->dts, win32->hwnd, cdt);
       break;
    }
+#endif
+#ifdef __HAIKU__
+   case KOPPER_HAIKU:
+      _mesa_hash_table_insert(&screen->dts, cdt->info.bitmapHook, cdt);
+      break;
 #endif
    default:
       unreachable("unsupported!");

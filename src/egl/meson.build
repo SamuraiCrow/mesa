@@ -148,7 +148,7 @@ elif with_platform_haiku
   files_egl += files('drivers/haiku/egl_haiku.cpp')
   incs_for_egl += [include_directories('../mapi', '../mesa', '../gallium/auxiliary', '../gallium/drivers', '../gallium/winsys', '../gallium/frontends/hgl', '../gallium/winsys/sw/hgl')]
   link_for_egl += [libmesa, libgallium, libswhgl, libsthgl]
-  deps_for_egl += [cpp.find_library('be'), driver_swrast]
+  deps_for_egl += [cpp.find_library('be'), driver_swrast, driver_zink]
 elif with_platform_windows
   c_args_for_egl += [
     '-DEGLAPI=', '-DPUBLIC='
