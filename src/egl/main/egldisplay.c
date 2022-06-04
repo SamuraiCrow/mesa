@@ -33,6 +33,9 @@
  */
 
 #include <assert.h>
+#ifndef __cplusplus
+#define static_assert _Static_assert
+#endif
 #include <stdlib.h>
 #include <string.h>
 #ifdef _WIN32

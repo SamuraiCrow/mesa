@@ -31,6 +31,9 @@
 
 #include <assert.h>
 #include "ac_rgp.h"
+#ifndef __cplusplus
+#define static_assert _Static_assert
+#endif
 
 struct radeon_cmdbuf;
 struct radeon_info;

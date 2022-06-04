@@ -28,6 +28,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#ifndef __cplusplus
+#define static_assert _Static_assert
+#endif
 
 #ifdef _GAMING_XBOX
 #define strdup _strdup
