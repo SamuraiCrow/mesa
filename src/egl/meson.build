@@ -180,7 +180,7 @@ else
     input : 'main/50_mesa.json',
     output: '50_@0@.json'.format(glvnd_vendor_name),
     install : true,
-    install_dir : join_paths(get_option('datadir'), 'glvnd', 'egl_vendor.d')
+    install_dir : 'add-ons/opengl/egl_vendor.d'
   )
 endif
 
@@ -206,6 +206,7 @@ libegl = shared_library(
   link_args : [ld_args_bsymbolic, ld_args_gc_sections],
   dependencies : [deps_for_egl, dep_dl, dep_libdrm, dep_clock, dep_thread, idep_mesautil],
   install : true,
+  install_dir : 'add-ons/opengl/egl_vendor.d',
   version : egl_lib_version,
   soversion : egl_lib_soversion,
   name_prefix : host_machine.system() == 'windows' ? 'lib' : [],  # always use lib, but avoid warnings on !windows

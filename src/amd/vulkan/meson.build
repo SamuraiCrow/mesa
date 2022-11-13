@@ -205,6 +205,7 @@ libvulkan_radeon = shared_library(
   gnu_symbol_visibility : 'hidden',
   name_prefix : host_machine.system() == 'windows' ? '' : [],
   install : true,
+  install_dir : with_vulkan_icd_dir,
 )
 
 if with_symbols_check

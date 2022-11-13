@@ -502,7 +502,11 @@ if with_glvnd
 endif
 
 if with_vulkan_icd_dir == ''
-  with_vulkan_icd_dir = join_paths(get_option('datadir'), 'vulkan/icd.d')
+  if ['haiku'].contains(host_machine.system())
+    with_vulkan_icd_dir = 'add-ons/vulkan/icd.d'
+  else
+    with_vulkan_icd_dir = join_paths(get_option('datadir'), 'vulkan/icd.d')
+  endif
 endif
 
 # GNU/Hurd includes egl_dri2, without drm.

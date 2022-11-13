@@ -12,6 +12,7 @@ libvulkan_lvp = shared_library(
   dependencies : driver_swrast,
   name_prefix : host_machine.system() == 'windows' ? '' : [],
   install : true,
+  install_dir : with_vulkan_icd_dir,
 )
 
 icd_lib_path = join_paths(get_option('prefix'), get_option('libdir'))
@@ -27,7 +28,7 @@ endif
 icd_command = [
   prog_python, '@INPUT0@',
   '--api-version', '1.1', '--xml', '@INPUT1@',
-  '--lib-path', join_paths(icd_lib_path, icd_file_name),
+  '--lib-path', join_paths('.', icd_file_name),
   '--out', '@OUTPUT@',
 ]
 if with_platform_windows
