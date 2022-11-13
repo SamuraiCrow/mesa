@@ -116,9 +116,6 @@ if with_gallium_asahi or with_tools.contains('asahi')
   subdir('asahi')
 endif
 subdir('loader')
-if with_platform_haiku
-  subdir('hgl')
-endif
 if with_gbm
   subdir('gbm')
 else
