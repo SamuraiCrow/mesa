@@ -156,14 +156,16 @@ __getProgramName()
    return strdup(progname);
 }
 #elif DETECT_OS_HAIKU
-#  include <kernel/OS.h>
 #  include <kernel/image.h>
 static char *
 __getProgramName()
 {
    image_info info;
-   get_image_info(B_CURRENT_TEAM, &info);
-   return strdup(info.name);
+   int32 cookie = 0;
+   get_next_image_info(B_CURRENT_TEAM, &cookie, &info);
+   const char *name = strrchr(info.name, '/');
+   name = (name != NULL) ? name + 1 : info.name;
+   return strdup(name);
 }
 #else
 #define GET_PROGRAM_NAME_NOT_AVAILABLE
