@@ -176,11 +176,19 @@ radv_null_winsys_destroy(struct radeon_winsys *rws)
    FREE(rws);
 }
 
+#ifdef __HAIKU__
+static struct accelerant_base *
+radv_null_winsys_get_accelerant(struct radeon_winsys *rws)
+{
+   return NULL;
+}
+#else
 static int
 radv_null_winsys_get_fd(struct radeon_winsys *rws)
 {
    return -1;
 }
+#endif
 
 static const struct vk_sync_type *const *
 radv_null_winsys_get_sync_types(struct radeon_winsys *rws)
@@ -199,7 +207,11 @@ radv_null_winsys_create()
 
    ws->base.destroy = radv_null_winsys_destroy;
    ws->base.query_info = radv_null_winsys_query_info;
+#ifdef __HAIKU__
+   ws->base.get_accelerant = radv_null_winsys_get_accelerant;
+#else
    ws->base.get_fd = radv_null_winsys_get_fd;
+#endif
    ws->base.get_sync_types = radv_null_winsys_get_sync_types;
    ws->base.get_chip_name = radv_null_winsys_get_chip_name;
    radv_null_bo_init_functions(ws);

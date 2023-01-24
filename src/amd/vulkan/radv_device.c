@@ -829,7 +829,7 @@ radv_physical_device_try_create(struct radv_instance *instance, drmDevicePtr drm
 
    device->vk.supported_sync_types = device->ws->get_sync_types(device->ws);
 
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__HAIKU__)
    if (drm_device && instance->vk.enabled_extensions.KHR_display) {
       master_fd = open(drm_device->nodes[DRM_NODE_PRIMARY], O_RDWR | O_CLOEXEC);
       if (master_fd >= 0) {
@@ -3854,7 +3854,11 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
    simple_mtx_init(&device->pstate_mtx, mtx_plain);
 
    device->ws = physical_device->ws;
+#ifdef __HAIKU__
+   vk_device_set_accelerant(&device->vk, device->ws->get_accelerant(device->ws));
+#else
    vk_device_set_drm_fd(&device->vk, device->ws->get_fd(device->ws));
+#endif
 
    /* With update after bind we can't attach bo's to the command buffer
     * from the descriptor set anymore, so we have to use a global BO list.

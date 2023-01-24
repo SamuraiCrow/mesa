@@ -164,6 +164,10 @@ if with_platform_android
   radv_deps += dep_android
 endif
 
+if dep_libaccelerant.found()
+  radv_deps += dep_libaccelerant
+endif
+
 # When static linking LLVM, all its symbols are public API.
 # That may cause symbol collision, so explicitly demote everything.
 libvulkan_radeon_ld_args = []

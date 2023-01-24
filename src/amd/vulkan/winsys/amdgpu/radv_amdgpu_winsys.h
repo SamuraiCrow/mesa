@@ -29,6 +29,9 @@
 #define RADV_AMDGPU_WINSYS_H
 
 #include <amdgpu.h>
+#ifdef __HAIKU__
+#include <AccelerantDrm.h>
+#endif
 #include <pthread.h>
 #include "util/list.h"
 #include "util/rwlock.h"

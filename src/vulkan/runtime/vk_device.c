@@ -21,6 +21,10 @@
  * IN THE SOFTWARE.
  */
 
+#ifdef __HAIKU__
+#include <AccelerantDrm.h>
+#endif
+
 #include "vk_device.h"
 
 #include "vk_common_entrypoints.h"
@@ -190,6 +194,10 @@ vk_device_init(struct vk_device *device,
    list_inithead(&device->queues);
 
    device->drm_fd = -1;
+#ifdef __HAIKU__
+   device->acc = NULL;
+   device->acc_drm = NULL;
+#endif
 
    device->timeline_mode = get_timeline_mode(physical_device);
 
@@ -239,8 +247,25 @@ vk_device_finish(struct vk_device *device)
    }
 #endif /* ANDROID */
 
+#ifdef __HAIKU__
+   if (device->acc != NULL) {
+      device->acc->vt->ReleaseReference(device->acc);
+      device->acc = NULL;
+      device->acc_drm = NULL;
+   }
+#endif
+
    vk_object_base_finish(&device->base);
 }
+
+#ifdef __HAIKU__
+void
+vk_device_set_accelerant(struct vk_device *device, struct accelerant_base *acc)
+{
+   device->acc = acc;
+   device->acc_drm = (accelerant_drm*)device->acc->vt->QueryInterface(device->acc, B_ACCELERANT_IFACE_DRM, 0);
+}
+#endif
 
 void
 vk_device_enable_threaded_submit(struct vk_device *device)

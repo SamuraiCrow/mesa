@@ -36,7 +36,11 @@
 #include "radv_amdgpu_surface.h"
 #include "radv_amdgpu_winsys_public.h"
 #include "radv_debug.h"
+#ifdef __HAIKU__
+#include "vk_accelerant_syncobj.h"
+#else
 #include "vk_drm_syncobj.h"
+#endif
 #include "xf86drm.h"
 
 static bool
@@ -179,12 +183,22 @@ radv_amdgpu_winsys_destroy(struct radeon_winsys *rws)
    FREE(rws);
 }
 
+
+#ifdef __HAIKU__
+static struct accelerant_base *
+radv_amdgpu_winsys_get_accelerant(struct radeon_winsys *rws)
+{
+   struct radv_amdgpu_winsys *ws = (struct radv_amdgpu_winsys *)rws;
+   return amdgpu_device_get_accelerant(ws->dev);
+}
+#else
 static int
 radv_amdgpu_winsys_get_fd(struct radeon_winsys *rws)
 {
    struct radv_amdgpu_winsys *ws = (struct radv_amdgpu_winsys *)rws;
    return amdgpu_device_get_fd(ws->dev);
 }
+#endif
 
 static const struct vk_sync_type *const *
 radv_amdgpu_winsys_get_sync_types(struct radeon_winsys *rws)
@@ -267,7 +281,11 @@ radv_amdgpu_winsys_create(int fd, uint64_t debug_flags, uint64_t perftest_flags,
    }
    int num_sync_types = 0;
 
+#ifdef __HAIKU__
+   ws->syncobj_sync_type = vk_accelerant_syncobj_get_type(amdgpu_device_get_accelerant(ws->dev));
+#else
    ws->syncobj_sync_type = vk_drm_syncobj_get_type(amdgpu_device_get_fd(ws->dev));
+#endif
    if (ws->syncobj_sync_type.features) {
       ws->sync_types[num_sync_types++] = &ws->syncobj_sync_type;
       if (!(ws->syncobj_sync_type.features & VK_SYNC_FEATURE_TIMELINE)) {
@@ -289,7 +307,11 @@ radv_amdgpu_winsys_create(int fd, uint64_t debug_flags, uint64_t perftest_flags,
    ws->base.read_registers = radv_amdgpu_winsys_read_registers;
    ws->base.get_chip_name = radv_amdgpu_winsys_get_chip_name;
    ws->base.destroy = radv_amdgpu_winsys_destroy;
+#ifdef __HAIKU__
+   ws->base.get_accelerant = radv_amdgpu_winsys_get_accelerant;
+#else
    ws->base.get_fd = radv_amdgpu_winsys_get_fd;
+#endif
    ws->base.get_sync_types = radv_amdgpu_winsys_get_sync_types;
    radv_amdgpu_bo_init_functions(ws);
    radv_amdgpu_cs_init_functions(ws);

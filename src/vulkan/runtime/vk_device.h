@@ -35,6 +35,9 @@
 extern "C" {
 #endif
 
+#ifdef __HAIKU__
+struct accelerant_base;
+#endif
 struct vk_command_buffer_ops;
 struct vk_sync;
 
@@ -181,6 +184,11 @@ struct vk_device {
    /* Set by vk_device_set_drm_fd() */
    int drm_fd;
 
+#ifdef __HAIKU__
+   struct accelerant_base *acc;
+   struct accelerant_drm *acc_drm;
+#endif
+
    /** An enum describing how timeline semaphores work */
    enum vk_device_timeline_mode {
       /** Timeline semaphores are not supported */
@@ -286,6 +294,10 @@ vk_device_set_drm_fd(struct vk_device *device, int drm_fd)
 {
    device->drm_fd = drm_fd;
 }
+
+#ifdef __HAIKU__
+void vk_device_set_accelerant(struct vk_device *device, struct accelerant_base *acc);
+#endif
 
 /** Tears down a vk_device
  *

@@ -1509,6 +1509,14 @@ if with_platform_haiku
   dep_network = cc.find_library('network')
 endif
 
+dep_libaccelerant = dependency(
+  'libaccelerant',
+  required : with_platform_haiku
+)
+if dep_libaccelerant.found()
+  pre_args += '-DHAVE_LIBACCELERANT'
+endif
+
 dep_futex = null_dep
 if host_machine.system() == 'windows'
   if (get_option('min-windows-version') < 8)

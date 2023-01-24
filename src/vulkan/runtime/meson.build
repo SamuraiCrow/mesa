@@ -108,6 +108,12 @@ if dep_libdrm.found()
   vulkan_runtime_deps += dep_libdrm
 endif
 
+if dep_libaccelerant.found()
+  vulkan_runtime_files += files('vk_accelerant_syncobj.c', 'vk_accelerant_syncobj.h')
+  vulkan_runtime_deps += dep_libaccelerant
+endif
+
+
 if with_platform_android
   vulkan_runtime_files += files('vk_android.c')
   vulkan_runtime_deps += dep_android
@@ -205,7 +211,7 @@ idep_vulkan_common_entrypoints_h = declare_dependency(
 
 # This is likely a bug in the Meson VS backend, as MSVC with ninja works fine.
 # See this discussion here:
-# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/10506 
+# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/10506
 if get_option('backend').startswith('vs')
   idep_vulkan_runtime = declare_dependency(
     link_with : libvulkan_runtime,

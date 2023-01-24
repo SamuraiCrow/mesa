@@ -306,7 +306,11 @@ struct radeon_winsys {
    int (*surface_init)(struct radeon_winsys *ws, const struct ac_surf_info *surf_info,
                        struct radeon_surf *surf);
 
+#ifdef __HAIKU__
+   struct accelerant_base *(*get_accelerant)(struct radeon_winsys *ws);
+#else
    int (*get_fd)(struct radeon_winsys *ws);
+#endif
 
    struct ac_addrlib *(*get_addrlib)(struct radeon_winsys *ws);
 
