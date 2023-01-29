@@ -82,8 +82,7 @@ extern "C" {
 _EGL_DRIVER_STANDARD_TYPECASTS(haiku_egl)
 
 
-struct haiku_egl_display
-{
+struct haiku_egl_display {
 	int ref_count;
 	struct hgl_display *disp;
 };
@@ -104,9 +103,9 @@ struct haiku_egl_surface {
 };
 
 
-/**
- * Called via eglCreateWindowSurface(), drv->CreateWindowSurface().
- */
+// #pragma mark EGLSurface
+
+// Called via eglCreateWindowSurface(), drv->CreateWindowSurface().
 static _EGLSurface *
 haiku_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf, void *native_window, const EGLint *attrib_list)
 {
@@ -122,10 +121,7 @@ haiku_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf, void *native_wi
 		return NULL;
 	}
 
-	_EGLContext *ctx = _eglGetCurrentContext();
-	struct haiku_egl_context *hglCtx = haiku_egl_context(ctx);
-
-	 struct st_visual visual;
+	struct st_visual visual;
 	hgl_get_st_visual(&visual, BGL_DOUBLE|BGL_DEPTH);
 
 	wgl_surf->fb = hgl_create_st_framebuffer(hgl_dpy->disp, &visual, native_window);
@@ -161,10 +157,8 @@ haiku_create_pbuffer_surface(_EGLDisplay *disp, _EGLConfig *conf, const EGLint *
 		return NULL;
 	}
 
-	_EGLContext *ctx = _eglGetCurrentContext();
-	struct haiku_egl_context *hglCtx = haiku_egl_context(ctx);
 
-	 struct st_visual visual;
+	struct st_visual visual;
 	hgl_get_st_visual(&visual, BGL_DOUBLE|BGL_DEPTH);
 
 	wgl_surf->fb = hgl_create_st_framebuffer(hgl_dpy->disp, &visual, NULL);
@@ -195,6 +189,60 @@ haiku_destroy_surface(_EGLDisplay *disp, _EGLSurface *surf)
 	return EGL_TRUE;
 }
 
+static void
+update_size(struct hgl_buffer *buffer)
+{
+	uint32_t newWidth, newHeight;
+	((BitmapHook*)buffer->winsysContext)->GetSize(newWidth, newHeight);
+	if (buffer->newWidth != newWidth || buffer->newHeight != newHeight) {
+		buffer->newWidth = newWidth;
+		buffer->newHeight = newHeight;
+		p_atomic_inc(&buffer->base.stamp);
+	}
+}
+
+static EGLBoolean
+haiku_swap_buffers(_EGLDisplay *disp, _EGLSurface *surf)
+{
+	struct haiku_egl_display *hgl_dpy = haiku_egl_display(disp);
+	struct haiku_egl_surface* hgl_surf = haiku_egl_surface(surf);
+	struct haiku_egl_context* hgl_ctx = haiku_egl_context(surf->CurrentContext);
+	if (hgl_ctx == NULL)
+		return EGL_FALSE;
+
+	struct st_context *st = hgl_ctx->ctx->st;
+	struct pipe_screen *screen = hgl_dpy->disp->fscreen->screen;
+
+	struct hgl_buffer* buffer = hgl_surf->fb;
+	auto &backBuffer = buffer->textures[ST_ATTACHMENT_BACK_LEFT];
+	auto &frontBuffer = buffer->textures[ST_ATTACHMENT_FRONT_LEFT];
+
+	st->pipe->flush_resource(st->pipe, backBuffer);
+
+	_mesa_glthread_finish(st->ctx);
+
+	struct pipe_fence_handle *new_fence = NULL;
+	st_context_flush(st, ST_FLUSH_FRONT, &new_fence, NULL, NULL);
+	if (hgl_surf->throttle_fence) {
+		screen->fence_finish(screen, NULL, hgl_surf->throttle_fence, PIPE_TIMEOUT_INFINITE);
+		screen->fence_reference(screen, &hgl_surf->throttle_fence, NULL);
+	}
+	hgl_surf->throttle_fence = new_fence;
+
+	// flush back buffer and swap buffers if double buffering is used
+	if (backBuffer != NULL) {
+		screen->flush_frontbuffer(screen, st->pipe, backBuffer, 0, 0, buffer->winsysContext, NULL);
+		std::swap(frontBuffer, backBuffer);
+		p_atomic_inc(&buffer->base.stamp);
+	}
+
+	update_size(buffer);
+
+	return EGL_TRUE;
+}
+
+
+// #pragma mark EGLDisplay
 
 static EGLBoolean
 haiku_add_configs_for_visuals(_EGLDisplay *disp)
@@ -262,7 +310,14 @@ cleanup:
 static void
 haiku_display_destroy(_EGLDisplay *disp)
 {
+   if (!disp)
+      return;
+
 	struct haiku_egl_display *hgl_dpy = haiku_egl_display(disp);
+
+   assert(hgl_dpy->ref_count > 0);
+   if (!p_atomic_dec_zero(&hgl_dpy->ref_count))
+      return;
 
 	struct pipe_screen* screen = hgl_dpy->disp->fscreen->screen;
 	hgl_destroy_display(hgl_dpy->disp); hgl_dpy->disp = NULL;
@@ -274,14 +329,15 @@ haiku_display_destroy(_EGLDisplay *disp)
 static EGLBoolean
 haiku_initialize_impl(_EGLDisplay *disp, void *platformDisplay)
 {
-	struct haiku_egl_display *wgl_dpy;
+	struct haiku_egl_display *hgl_dpy;
 	const char* err;
 
-	wgl_dpy = (struct haiku_egl_display*)calloc(1, sizeof(struct haiku_egl_display));
-	if (!wgl_dpy)
+	hgl_dpy = (struct haiku_egl_display*)calloc(1, sizeof(struct haiku_egl_display));
+	if (!hgl_dpy)
 		return _eglError(EGL_BAD_ALLOC, "eglInitialize");
 
-	disp->DriverData = (void *)wgl_dpy;
+	hgl_dpy->ref_count = 1;
+	disp->DriverData = (void *)hgl_dpy;
 
 	struct sw_winsys* winsys = hgl_create_sw_winsys();
 #if 0
@@ -289,7 +345,7 @@ haiku_initialize_impl(_EGLDisplay *disp, void *platformDisplay)
 #else
 	struct pipe_screen* screen = zink_create_screen(winsys, NULL);
 #endif
-	wgl_dpy->disp = hgl_create_display(screen);
+	hgl_dpy->disp = hgl_create_display(screen);
 
 	disp->ClientAPIs = 0;
 	if (_eglIsApiValid(EGL_OPENGL_API))
@@ -303,11 +359,11 @@ haiku_initialize_impl(_EGLDisplay *disp, void *platformDisplay)
 
 	/* Report back to EGL the bitmask of priorities supported */
 	disp->Extensions.IMG_context_priority =
-		wgl_dpy->disp->fscreen->screen->get_param(wgl_dpy->disp->fscreen->screen, PIPE_CAP_CONTEXT_PRIORITY_MASK);
+		hgl_dpy->disp->fscreen->screen->get_param(hgl_dpy->disp->fscreen->screen, PIPE_CAP_CONTEXT_PRIORITY_MASK);
 
 	disp->Extensions.EXT_pixel_format_float = EGL_TRUE;
 
-	if (wgl_dpy->disp->fscreen->screen->is_format_supported(wgl_dpy->disp->fscreen->screen,
+	if (hgl_dpy->disp->fscreen->screen->is_format_supported(hgl_dpy->disp->fscreen->screen,
 			PIPE_FORMAT_B8G8R8A8_SRGB,
 			PIPE_TEXTURE_2D, 0, 0,
 			PIPE_BIND_RENDER_TARGET))
@@ -327,7 +383,7 @@ cleanup:
 
 
 static EGLBoolean
-init_haiku(_EGLDisplay *disp)
+haiku_initialize(_EGLDisplay *disp)
 {
 	EGLBoolean ret = EGL_FALSE;
 	struct haiku_egl_display *hgl_dpy = haiku_egl_display(disp);
@@ -354,7 +410,6 @@ init_haiku(_EGLDisplay *disp)
 		return EGL_FALSE;
 
 	hgl_dpy = haiku_egl_display(disp);
-	hgl_dpy->ref_count++;
 
 	return EGL_TRUE;
 }
@@ -363,9 +418,12 @@ init_haiku(_EGLDisplay *disp)
 static EGLBoolean
 haiku_terminate(_EGLDisplay *disp)
 {
+	haiku_display_destroy(disp);
 	return EGL_TRUE;
 }
 
+
+// #pragma mark EGLContext
 
 static _EGLContext*
 haiku_create_context(_EGLDisplay *disp, _EGLConfig *conf,
@@ -412,32 +470,26 @@ haiku_destroy_context(_EGLDisplay *disp, _EGLContext* ctx)
 }
 
 
-static void
-update_size(struct hgl_buffer *buffer)
-{
-	uint32_t newWidth, newHeight;
-	((BitmapHook*)buffer->winsysContext)->GetSize(newWidth, newHeight);
-	if (buffer->newWidth != newWidth || buffer->newHeight != newHeight) {
-		buffer->newWidth = newWidth;
-		buffer->newHeight = newHeight;
-		p_atomic_inc(&buffer->base.stamp);
-	}
-}
-
-
 static EGLBoolean
 haiku_make_current(_EGLDisplay *disp, _EGLSurface *dsurf, _EGLSurface *rsurf, _EGLContext *ctx)
 {
 	CALLED();
 
-	struct haiku_egl_display *hgl_dpy = haiku_egl_display(disp);
 	struct haiku_egl_context* hgl_ctx = haiku_egl_context(ctx);
 	struct haiku_egl_surface* hgl_dsurf = haiku_egl_surface(dsurf);
+	struct haiku_egl_surface* hgl_rsurf = haiku_egl_surface(rsurf);
 	_EGLContext *old_ctx;
 	_EGLSurface *old_dsurf, *old_rsurf;
 
 	if (!_eglBindContext(ctx, dsurf, rsurf, &old_ctx, &old_dsurf, &old_rsurf))
 		return EGL_FALSE;
+
+	if (old_ctx == ctx && old_dsurf == dsurf && old_rsurf == rsurf) {
+		_eglPutSurface(old_dsurf);
+		_eglPutSurface(old_rsurf);
+		_eglPutContext(old_ctx);
+		return EGL_TRUE;
+	}
 
 	if (ctx == NULL) {
 		st_api_make_current(NULL, NULL, NULL);
@@ -445,49 +497,14 @@ haiku_make_current(_EGLDisplay *disp, _EGLSurface *dsurf, _EGLSurface *rsurf, _E
 		if (dsurf != NULL && dsurf != old_dsurf)
 			update_size(hgl_dsurf->fb);
 
-		st_api_make_current(hgl_ctx->ctx->st, hgl_dsurf == NULL ? NULL : &hgl_dsurf->fb->base, hgl_dsurf == NULL ? NULL : &hgl_dsurf->fb->base);
+		st_api_make_current(hgl_ctx->ctx->st,
+			hgl_dsurf == NULL ? NULL : &hgl_dsurf->fb->base,
+			hgl_rsurf == NULL ? NULL : &hgl_rsurf->fb->base);
 	}
 
-	return EGL_TRUE;
-}
-
-
-static EGLBoolean
-haiku_swap_buffers(_EGLDisplay *disp, _EGLSurface *surf)
-{
-	struct haiku_egl_display *hgl_dpy = haiku_egl_display(disp);
-	struct haiku_egl_surface* hgl_surf = haiku_egl_surface(surf);
-	struct haiku_egl_context* hgl_ctx = haiku_egl_context(surf->CurrentContext);
-	if (hgl_ctx == NULL)
-		return EGL_FALSE;
-
-	struct st_context *st = hgl_ctx->ctx->st;
-	struct pipe_screen *screen = hgl_dpy->disp->fscreen->screen;
-
-	struct hgl_buffer* buffer = hgl_surf->fb;
-	auto &backBuffer = buffer->textures[ST_ATTACHMENT_BACK_LEFT];
-	auto &frontBuffer = buffer->textures[ST_ATTACHMENT_FRONT_LEFT];
-
-	st->pipe->flush_resource(st->pipe, backBuffer);
-
-	_mesa_glthread_finish(st->ctx);
-
-	struct pipe_fence_handle *new_fence = NULL;
-	st_context_flush(st, ST_FLUSH_FRONT, &new_fence, NULL, NULL);
-	if (hgl_surf->throttle_fence) {
-		screen->fence_finish(screen, NULL, hgl_surf->throttle_fence, PIPE_TIMEOUT_INFINITE);
-		screen->fence_reference(screen, &hgl_surf->throttle_fence, NULL);
-	}
-	hgl_surf->throttle_fence = new_fence;
-
-	// flush back buffer and swap buffers if double buffering is used
-	if (backBuffer != NULL) {
-		screen->flush_frontbuffer(screen, st->pipe, backBuffer, 0, 0, buffer->winsysContext, NULL);
-		std::swap(frontBuffer, backBuffer);
-		p_atomic_inc(&buffer->base.stamp);
-	}
-
-	update_size(buffer);
+	if (old_dsurf != NULL) haiku_destroy_surface(disp, old_dsurf);
+	if (old_rsurf != NULL) haiku_destroy_surface(disp, old_rsurf);
+	if (old_ctx   != NULL) haiku_destroy_context(disp, old_ctx);
 
 	return EGL_TRUE;
 }
@@ -495,7 +512,7 @@ haiku_swap_buffers(_EGLDisplay *disp, _EGLSurface *surf)
 
 extern "C"
 const _EGLDriver _eglDriver = {
-	.Initialize = init_haiku,
+	.Initialize = haiku_initialize,
 	.Terminate = haiku_terminate,
 	.CreateContext = haiku_create_context,
 	.DestroyContext = haiku_destroy_context,
