@@ -219,7 +219,7 @@ if _vulkan_drivers.contains('auto')
     endif
   elif ['darwin', 'windows', 'cygwin', 'haiku'].contains(host_machine.system())
     # No vulkan driver supports windows or macOS currently
-    _vulkan_drivers = ['amd', 'swrast']
+    _vulkan_drivers = ['amd', 'swrast', 'intel']
   else
     error('Unknown OS @0@. Please pass -Dvulkan-drivers to set driver options. Patches gladly accepted to fix this.'.format(
           host_machine.system()))
@@ -1418,11 +1418,10 @@ if host_machine.system() != 'windows'
   endif
 endif
 
-#if cc.has_function('dl_iterate_phdr')
-#  pre_args += '-DHAVE_DL_ITERATE_PHDR'
-#el
-if with_intel_vk or with_intel_hasvk
-  error('Intel "Anvil" Vulkan driver requires the dl_iterate_phdr function')
+if cc.has_function('dl_iterate_phdr', dependencies : dep_dl)
+  pre_args += '-DHAVE_DL_ITERATE_PHDR'
+#elif with_intel_vk or with_intel_hasvk
+#  error('Intel "Anvil" Vulkan driver requires the dl_iterate_phdr function')
 endif
 
 # only used in Iris and ANV
@@ -1507,6 +1506,8 @@ endif
 
 if with_platform_haiku
   dep_network = cc.find_library('network')
+  dep_bsd = cc.find_library('bsd')
+  dep_gnu = cc.find_library('gnu')
 endif
 
 dep_libaccelerant = dependency(

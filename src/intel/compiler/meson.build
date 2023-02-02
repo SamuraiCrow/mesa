@@ -164,7 +164,7 @@ libintel_compiler = static_library(
   c_args : [no_override_init_args],
   override_options: ['cpp_std=c++17'],
   gnu_symbol_visibility : 'hidden',
-  dependencies : [idep_nir_headers, idep_mesautil],
+  dependencies : [idep_nir_headers, idep_mesautil, dep_gnu],
   build_by_default : false,
 )
 

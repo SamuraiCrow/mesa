@@ -257,6 +257,16 @@ anv_state_table_finish(struct anv_state_table *table)
    close(table->fd);
 }
 
+static void futex_wake(uint32_t *a, uint32_t b)
+{
+	abort();
+}
+
+static void futex_wait(uint32_t *a, uint32_t b, void *c)
+{
+	abort();
+}
+
 VkResult
 anv_state_table_add(struct anv_state_table *table, uint32_t *idx,
                     uint32_t count)

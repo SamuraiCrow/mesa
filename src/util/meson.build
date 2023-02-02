@@ -219,7 +219,8 @@ deps_for_libmesa_util = [
   dep_dl,
   dep_unwind,
   dep_futex,
-  idep_mesautilc11
+  idep_mesautilc11,
+  dep_bsd
 ]
 
 if with_platform_android

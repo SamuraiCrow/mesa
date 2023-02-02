@@ -26,6 +26,9 @@
 #include <link.h>
 #include <stddef.h>
 #include <string.h>
+#ifdef __HAIKU__
+#include <elf.h>
+#endif
 
 #include "build_id.h"
 #include "macros.h"
@@ -35,7 +38,7 @@
 #endif
 
 #ifndef ElfW
-#define ElfW(type) Elf_##type
+#define ElfW(type) Elf64_##type
 #endif
 
 struct build_id_note {

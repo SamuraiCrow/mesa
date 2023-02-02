@@ -51,6 +51,11 @@
 #include "util/mesa-sha1.h"
 #include "util/u_math.h"
 
+#ifdef __HAIKU__
+#define major(x) 0
+#define minor(x) (x)
+#endif
+
 #define FILE_DEBUG_FLAG DEBUG_PERFMON
 
 static bool

@@ -31,6 +31,10 @@
 #ifdef MAJOR_IN_SYSMACROS
 #include <sys/sysmacros.h>
 #endif
+#ifdef __HAIKU__
+#define major(x) 0
+#define minor(x) (x)
+#endif
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -584,6 +588,7 @@ anv_physical_device_init_heaps(struct anv_physical_device *device, int fd)
 static VkResult
 anv_physical_device_init_uuids(struct anv_physical_device *device)
 {
+#ifdef HAVE_DL_ITERATE_PHDR
    const struct build_id_note *note =
       build_id_find_nhdr_for_addr(anv_physical_device_init_uuids);
    if (!note) {
@@ -598,6 +603,7 @@ anv_physical_device_init_uuids(struct anv_physical_device *device)
    }
 
    memcpy(device->driver_build_sha1, build_id_data(note), 20);
+#endif
 
    struct mesa_sha1 sha1_ctx;
    uint8_t sha1[20];
@@ -607,7 +613,9 @@ anv_physical_device_init_uuids(struct anv_physical_device *device)
     * invalid.  It needs both a driver build and the PCI ID of the device.
     */
    _mesa_sha1_init(&sha1_ctx);
+#ifdef HAVE_DL_ITERATE_PHDR
    _mesa_sha1_update(&sha1_ctx, build_id_data(note), build_id_len);
+#endif
    _mesa_sha1_update(&sha1_ctx, &device->info.pci_device_id,
                      sizeof(device->info.pci_device_id));
    _mesa_sha1_update(&sha1_ctx, &device->always_use_bindless,
